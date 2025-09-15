@@ -1,5 +1,6 @@
---// SETTINGS
-local Settings = {
+local ZygHubV4ESP = {}
+
+ZygHubV4ESP.Settings = {
     Box_Color = Color3.fromRGB(255, 0, 0),
     Tracer_Color = Color3.fromRGB(255, 0, 0),
     Tracer_Thickness = 1,
@@ -7,28 +8,29 @@ local Settings = {
     Tracer_Origin = "Bottom",
     Tracer_FollowMouse = false,
     Tracers = true,
-    Type = 1 -- 1 = Player ESP, 2 = Random-name ESP
-}
-local Team_Check = {
-    TeamCheck = false,
-    Green = Color3.fromRGB(0, 255, 0),
-    Red = Color3.fromRGB(255, 0, 0)
-}
-local TeamColor = true
+    MaxDistance = 1000,
 
---// SERVICES
+    -- Path set to mobs
+    TargetPath = workspace.Entities
+}
+
 local player = game:GetService("Players").LocalPlayer
 local camera = workspace.CurrentCamera
 local mouse = player:GetMouse()
-local RunService = game:GetService("RunService")
 
---// DRAW HELPERS
+-- Helper: check if string looks like random letters/numbers
+local function IsRandomString(str)
+    return str:match("%d") or str:match("%u") or str:match("%l")
+end
+
+-- Drawing functions (same as your original ESP)
 local function NewQuad(thickness, color)
     local quad = Drawing.new("Quad")
     quad.Visible = false
     quad.Color = color
-    quad.Filled = false
     quad.Thickness = thickness
+    quad.Filled = false
+    quad.Transparency = 1
     return quad
 end
 
@@ -37,77 +39,83 @@ local function NewLine(thickness, color)
     line.Visible = false
     line.Color = color
     line.Thickness = thickness
+    line.Transparency = 1
     return line
 end
 
 local function Visibility(state, lib)
-    for _, x in pairs(lib) do
-        x.Visible = state
+    for _, obj in pairs(lib) do
+        obj.Visible = state
     end
 end
 
---// CORE PLAYER ESP (Type1)
-local function PlayerESP(plr)
-    -- (your ESP code exactly as you already wrote it here)
-    -- just wrapped in PlayerESP(plr) for modularity
-end
+-- Core ESP function
+local function ESP(entity)
+    -- Skip players and local player
+    if game:GetService("Players"):FindFirstChild(entity.Name) then return end
+    if entity == player.Character then return end
+    if not IsRandomString(entity.Name) then return end
 
---// HELPER: detect "random string name" (letters + numbers)
-local function IsRandomName(name)
-    return name:match("%d") and name:match("%a") and #name >= 6
-end
+    local library = {
+        tracer = NewLine(ZygHubV4ESP.Settings.Tracer_Thickness, ZygHubV4ESP.Settings.Tracer_Color),
+        box = NewQuad(ZygHubV4ESP.Settings.Box_Thickness, ZygHubV4ESP.Settings.Box_Color),
+    }
 
---// RANDOM-NAME OBJECT ESP (Type2)
-local function ObjectESP(obj)
-    local box = NewQuad(Settings.Box_Thickness, Settings.Box_Color)
-
-    local conn
-    conn = RunService.RenderStepped:Connect(function()
-        if obj and obj.Parent and obj:IsA("Model") and obj:FindFirstChild("HumanoidRootPart") then
-            local hrp = obj.HumanoidRootPart
-            local vector, onScreen = camera:WorldToViewportPoint(hrp.Position)
-
+    local connection
+    connection = game:GetService("RunService").RenderStepped:Connect(function()
+        if entity and entity:FindFirstChild("HumanoidRootPart") then
+            local HumPos, onScreen = camera:WorldToViewportPoint(entity.HumanoidRootPart.Position)
             if onScreen then
-                local size = 50
-                box.PointA = Vector2.new(vector.X - size, vector.Y - size)
-                box.PointB = Vector2.new(vector.X + size, vector.Y - size)
-                box.PointC = Vector2.new(vector.X + size, vector.Y + size)
-                box.PointD = Vector2.new(vector.X - size, vector.Y + size)
-                box.Visible = true
+                -- Box
+                local size = 5
+                library.box.PointA = Vector2.new(HumPos.X - size, HumPos.Y - size)
+                library.box.PointB = Vector2.new(HumPos.X + size, HumPos.Y - size)
+                library.box.PointC = Vector2.new(HumPos.X + size, HumPos.Y + size)
+                library.box.PointD = Vector2.new(HumPos.X - size, HumPos.Y + size)
+
+                -- Tracer
+                if ZygHubV4ESP.Settings.Tracers then
+                    library.tracer.From = Vector2.new(camera.ViewportSize.X * 0.5, camera.ViewportSize.Y)
+                    library.tracer.To = Vector2.new(HumPos.X, HumPos.Y)
+                end
+
+                -- Colors
+                library.box.Color = ZygHubV4ESP.Settings.Box_Color
+                library.tracer.Color = ZygHubV4ESP.Settings.Tracer_Color
+
+                Visibility(true, library)
             else
-                box.Visible = false
+                Visibility(false, library)
             end
         else
-            box.Visible = false
-            conn:Disconnect()
-            box:Remove()
+            Visibility(false, library)
+            if not entity or not entity.Parent then
+                connection:Disconnect()
+            end
         end
     end)
 end
 
---// INIT
-if Settings.Type == 1 then
-    -- Player ESP
-    for _, v in pairs(game:GetService("Players"):GetPlayers()) do
-        if v ~= player then
-            coroutine.wrap(PlayerESP)(v)
-        end
+-- Load ESP
+function ZygHubV4ESP:LoadESP()
+    for _, mob in pairs(self.Settings.TargetPath:GetChildren()) do
+        ESP(mob)
     end
-    game.Players.PlayerAdded:Connect(function(newplr)
-        if newplr ~= player then
-            coroutine.wrap(PlayerESP)(newplr)
-        end
-    end)
-elseif Settings.Type == 2 then
-    -- Random-name ESP
-    for _, obj in pairs(workspace:GetDescendants()) do
-        if IsRandomName(obj.Name) and obj:IsA("Model") then
-            coroutine.wrap(ObjectESP)(obj)
-        end
-    end
-    workspace.DescendantAdded:Connect(function(obj)
-        if IsRandomName(obj.Name) and obj:IsA("Model") then
-            coroutine.wrap(ObjectESP)(obj)
-        end
+    self._addedConnection = self.Settings.TargetPath.ChildAdded:Connect(function(mob)
+        ESP(mob)
     end)
 end
+
+-- Disconnect ESP
+function ZygHubV4ESP:DisconnectESP()
+    if self._addedConnection then
+        self._addedConnection:Disconnect()
+        self._addedConnection = nil
+    end
+    -- Destroy drawings
+    for _, obj in pairs(Drawing:GetObjects()) do
+        obj:Remove()
+    end
+end
+
+return ZygHubV4ESP
