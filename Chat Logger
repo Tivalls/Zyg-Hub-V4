@@ -1,5 +1,5 @@
---// ZygHub Chatlogger UI
--- Creates a draggable, transparent UI panel with header + rounded corners
+--// ZygHub Chatlogger (with UI toggle support)
+-- Call Chatlogger:SetVisible(true/false) to show/hide the UI
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -14,6 +14,10 @@ function ZygHubChatlogger.new()
     self._lines = {}
     self._connections = {}
     self._gui = nil
+    self._frame = nil
+    self._chatBox = nil
+    self._header = nil
+    self._visible = false -- default invisible
 
     return self
 end
@@ -76,6 +80,12 @@ function ZygHubChatlogger:Load()
     chatBox.Parent = frame
 
     self._gui = gui
+    self._frame = frame
+    self._chatBox = chatBox
+    self._header = header
+
+    -- start hidden
+    self:SetVisible(false)
 
     -- Bind chat messages
     local function shift(tbl)
@@ -108,17 +118,22 @@ function ZygHubChatlogger:Load()
     table.insert(self._connections, Players.PlayerAdded:Connect(chatbind))
 end
 
+function ZygHubChatlogger:SetVisible(state)
+    self._visible = state
+    if self._frame then
+        self._frame.Visible = state
+    end
+end
+
 function ZygHubChatlogger:Unload()
     if not self._running then return end
     self._running = false
 
-    -- Cleanup UI
     if self._gui then
         self._gui:Destroy()
         self._gui = nil
     end
 
-    -- Disconnect connections
     for _, conn in ipairs(self._connections) do
         conn:Disconnect()
     end
@@ -126,5 +141,5 @@ function ZygHubChatlogger:Unload()
     self._lines = {}
 end
 
--- Return instance
+-- return instance
 return ZygHubChatlogger.new()
