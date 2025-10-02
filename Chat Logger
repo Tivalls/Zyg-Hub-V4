@@ -1,6 +1,8 @@
---// ZygHub Chatlogger
--- Loadable via: local Chatlogger = loadstring(game:HttpGet("your_github_url"))()
--- Usage: Chatlogger:Load()  /  Chatlogger:Unload()
+--// ZygHub Chatlogger UI
+-- Creates a draggable, transparent UI panel with header + rounded corners
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
 
 local ZygHubChatlogger = {}
 ZygHubChatlogger.__index = ZygHubChatlogger
@@ -11,17 +13,7 @@ function ZygHubChatlogger.new()
     self._running = false
     self._lines = {}
     self._connections = {}
-    self._updateSignal = Instance.new("BindableEvent")
-
-    -- Drawings
-    self._text = Drawing.new("Text")
-    self._square = Drawing.new("Square")
-    self._square2 = Drawing.new("Square")
-
-    -- Configure base visuals (invisible by default)
-    self._text.Visible = false
-    self._square.Visible = false
-    self._square2.Visible = false
+    self._gui = nil
 
     return self
 end
@@ -30,10 +22,62 @@ function ZygHubChatlogger:Load()
     if self._running then return end
     self._running = true
 
-    local function isStringEmpty(str)
-        return type(str) == "string" and (str:match("^%s+$") ~= nil or #str == 0)
-    end
+    -- Create GUI
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "ChatLoggerUI"
+    gui.ResetOnSpawn = false
+    gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
+    -- Main frame
+    local frame = Instance.new("Frame")
+    frame.Name = "MainFrame"
+    frame.Size = UDim2.new(0, 500, 0, 300)
+    frame.Position = UDim2.new(0.3, 0, 0.3, 0)
+    frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    frame.BackgroundTransparency = 0.3
+    frame.Active = true
+    frame.Draggable = true
+    frame.Parent = gui
+
+    -- Rounded corners
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 10)
+    corner.Parent = frame
+
+    -- Header
+    local header = Instance.new("TextLabel")
+    header.Name = "Header"
+    header.Size = UDim2.new(1, 0, 0, 30)
+    header.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+    header.BackgroundTransparency = 0.2
+    header.Text = "Chat Logger"
+    header.TextColor3 = Color3.fromRGB(255, 255, 255)
+    header.TextSize = 18
+    header.Font = Enum.Font.SourceSansBold
+    header.Parent = frame
+
+    local headerCorner = Instance.new("UICorner")
+    headerCorner.CornerRadius = UDim.new(0, 10)
+    headerCorner.Parent = header
+
+    -- Chat box
+    local chatBox = Instance.new("TextLabel")
+    chatBox.Name = "ChatBox"
+    chatBox.Size = UDim2.new(1, -10, 1, -40)
+    chatBox.Position = UDim2.new(0, 5, 0, 35)
+    chatBox.BackgroundTransparency = 1
+    chatBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+    chatBox.TextSize = 16
+    chatBox.Font = Enum.Font.SourceSans
+    chatBox.TextXAlignment = Enum.TextXAlignment.Left
+    chatBox.TextYAlignment = Enum.TextYAlignment.Top
+    chatBox.TextWrapped = true
+    chatBox.Text = ""
+    chatBox.Parent = frame
+
+    self._gui = gui
+
+    -- Bind chat messages
     local function shift(tbl)
         for i = 1, #tbl do
             tbl[i - 1] = tbl[i]
@@ -41,80 +85,40 @@ function ZygHubChatlogger:Load()
         tbl[#tbl] = nil
     end
 
+    local function updateChat()
+        chatBox.Text = table.concat(self._lines, "\n")
+    end
+
     local function chatbind(player)
         local conn = player.Chatted:Connect(function(msg)
-            if not isStringEmpty(msg) then
-                local firstname = player:GetAttribute("FirstName") or ""
-                local lastname = player:GetAttribute("LastName") or ""
-                table.insert(self._lines, string.format("%s %s (%s): %s", firstname, lastname, player.Name, msg))
-                if #self._lines >= 17 then
-                    shift(self._lines)
-                end
-                self._updateSignal:Fire()
+            local firstname = player:GetAttribute("FirstName") or ""
+            local lastname = player:GetAttribute("LastName") or ""
+            table.insert(self._lines, string.format("%s %s (%s): %s", firstname, lastname, player.Name, msg))
+            if #self._lines >= 17 then
+                shift(self._lines)
             end
+            updateChat()
         end)
         table.insert(self._connections, conn)
     end
 
-    -- Hook players
-    for _, player in ipairs(game:GetService("Players"):GetPlayers()) do
+    for _, player in ipairs(Players:GetPlayers()) do
         chatbind(player)
     end
-    table.insert(self._connections, game:GetService("Players").PlayerAdded:Connect(chatbind))
-
-    -- Render loop
-    table.insert(self._connections, game:GetService("RunService").Stepped:Connect(function()
-        if not self._running then return end
-        self._updateSignal:Fire()
-    end))
-
-    -- Draw loop
-    task.spawn(function()
-        while self._running do
-            self._updateSignal.Event:Wait()
-
-            local buffer = table.concat(self._lines, "\n")
-            local vpSize = workspace.CurrentCamera.ViewportSize
-
-            -- Background squares
-            self._square.Size = Vector2.new(500, 300)
-            self._square2.Size = self._square.Size + Vector2.new(10, 10)
-
-            self._square.Position = Vector2.new(vpSize.X - self._square.Size.X - 25, vpSize.Y - self._square.Size.Y - 25)
-            self._square2.Position = self._square.Position - Vector2.new(5, 5)
-
-            self._square2.Transparency = 0.5
-            self._square2.Visible = true
-            self._square2.Filled = true
-            self._square2.Color = Color3.new(1, 1, 1)
-
-            self._square.Transparency = 0.25
-            self._square.Visible = true
-            self._square.Filled = true
-            self._square.Color = Color3.new(1, 1, 1)
-
-            self._text.Position = self._square.Position
-            self._text.Size = 18
-            self._text.Text = buffer
-            self._text.Outline = false
-            self._text.Color = Color3.new(0, 0, 0)
-            self._text.OutlineColor = Color3.new(0, 0, 0)
-            self._text.Transparency = 1
-            self._text.Visible = true
-        end
-    end)
+    table.insert(self._connections, Players.PlayerAdded:Connect(chatbind))
 end
 
 function ZygHubChatlogger:Unload()
     if not self._running then return end
     self._running = false
 
-    -- Hide UI
-    self._text.Visible = false
-    self._square.Visible = false
-    self._square2.Visible = false
+    -- Cleanup UI
+    if self._gui then
+        self._gui:Destroy()
+        self._gui = nil
+    end
 
-    -- Cleanup
+    -- Disconnect connections
     for _, conn in ipairs(self._connections) do
         conn:Disconnect()
     end
@@ -122,5 +126,5 @@ function ZygHubChatlogger:Unload()
     self._lines = {}
 end
 
--- Return instance (so you can do Chatlogger:Load())
+-- Return instance
 return ZygHubChatlogger.new()
