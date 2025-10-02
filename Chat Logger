@@ -1,0 +1,126 @@
+--// ZygHub Chatlogger
+-- Loadable via: local Chatlogger = loadstring(game:HttpGet("your_github_url"))()
+-- Usage: Chatlogger:Load()  /  Chatlogger:Unload()
+
+local ZygHubChatlogger = {}
+ZygHubChatlogger.__index = ZygHubChatlogger
+
+function ZygHubChatlogger.new()
+    local self = setmetatable({}, ZygHubChatlogger)
+
+    self._running = false
+    self._lines = {}
+    self._connections = {}
+    self._updateSignal = Instance.new("BindableEvent")
+
+    -- Drawings
+    self._text = Drawing.new("Text")
+    self._square = Drawing.new("Square")
+    self._square2 = Drawing.new("Square")
+
+    -- Configure base visuals (invisible by default)
+    self._text.Visible = false
+    self._square.Visible = false
+    self._square2.Visible = false
+
+    return self
+end
+
+function ZygHubChatlogger:Load()
+    if self._running then return end
+    self._running = true
+
+    local function isStringEmpty(str)
+        return type(str) == "string" and (str:match("^%s+$") ~= nil or #str == 0)
+    end
+
+    local function shift(tbl)
+        for i = 1, #tbl do
+            tbl[i - 1] = tbl[i]
+        end
+        tbl[#tbl] = nil
+    end
+
+    local function chatbind(player)
+        local conn = player.Chatted:Connect(function(msg)
+            if not isStringEmpty(msg) then
+                local firstname = player:GetAttribute("FirstName") or ""
+                local lastname = player:GetAttribute("LastName") or ""
+                table.insert(self._lines, string.format("%s %s (%s): %s", firstname, lastname, player.Name, msg))
+                if #self._lines >= 17 then
+                    shift(self._lines)
+                end
+                self._updateSignal:Fire()
+            end
+        end)
+        table.insert(self._connections, conn)
+    end
+
+    -- Hook players
+    for _, player in ipairs(game:GetService("Players"):GetPlayers()) do
+        chatbind(player)
+    end
+    table.insert(self._connections, game:GetService("Players").PlayerAdded:Connect(chatbind))
+
+    -- Render loop
+    table.insert(self._connections, game:GetService("RunService").Stepped:Connect(function()
+        if not self._running then return end
+        self._updateSignal:Fire()
+    end))
+
+    -- Draw loop
+    task.spawn(function()
+        while self._running do
+            self._updateSignal.Event:Wait()
+
+            local buffer = table.concat(self._lines, "\n")
+            local vpSize = workspace.CurrentCamera.ViewportSize
+
+            -- Background squares
+            self._square.Size = Vector2.new(500, 300)
+            self._square2.Size = self._square.Size + Vector2.new(10, 10)
+
+            self._square.Position = Vector2.new(vpSize.X - self._square.Size.X - 25, vpSize.Y - self._square.Size.Y - 25)
+            self._square2.Position = self._square.Position - Vector2.new(5, 5)
+
+            self._square2.Transparency = 0.5
+            self._square2.Visible = true
+            self._square2.Filled = true
+            self._square2.Color = Color3.new(1, 1, 1)
+
+            self._square.Transparency = 0.25
+            self._square.Visible = true
+            self._square.Filled = true
+            self._square.Color = Color3.new(1, 1, 1)
+
+            self._text.Position = self._square.Position
+            self._text.Size = 18
+            self._text.Text = buffer
+            self._text.Outline = false
+            self._text.Color = Color3.new(0, 0, 0)
+            self._text.OutlineColor = Color3.new(0, 0, 0)
+            self._text.Transparency = 1
+            self._text.Visible = true
+        end
+    end)
+end
+
+function ZygHubChatlogger:Unload()
+    if not self._running then return end
+    self._running = false
+
+    -- Hide UI
+    self._text.Visible = false
+    self._square.Visible = false
+    self._square2.Visible = false
+
+    -- Cleanup
+    for _, conn in ipairs(self._connections) do
+        conn:Disconnect()
+    end
+    self._connections = {}
+    self._lines = {}
+end
+
+-- Return instance (so you can do Chatlogger:Load())
+return ZygHubChatlogger.new()
