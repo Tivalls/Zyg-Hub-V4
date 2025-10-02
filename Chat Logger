@@ -17,7 +17,7 @@ function ZygHubChatlogger.new()
     self._frame = nil
     self._chatBox = nil
     self._header = nil
-    self._visible = false -- default invisible
+    self._visible = false -- default hidden
 
     return self
 end
@@ -142,4 +142,4 @@ function ZygHubChatlogger:Unload()
 end
 
 -- return instance
-return ZygHubChatlogger.new()
+return ZygHubChatlogger
