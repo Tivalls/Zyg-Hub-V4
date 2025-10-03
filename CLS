@@ -18,7 +18,7 @@ function ZygHubChatlogger.new()
     self._visible = false -- default invisible
 
     -- Auto-scroll toggle (can be set externally)
-    self._autoScrollEnabled = false
+    self._autoScrollEnabled = (AutoscrollValue)
 
     return self
 end
