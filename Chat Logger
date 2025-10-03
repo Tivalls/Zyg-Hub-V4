@@ -1,38 +1,64 @@
---// ZygHub Chatlogger (with UI toggle support)
--- Call Chatlogger:SetVisible(true/false) to show/hide the UI
+--// ChatloggerModule.lua
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
+local HttpService = game:GetService("HttpService")
 
 local ZygHubChatlogger = {}
 ZygHubChatlogger.__index = ZygHubChatlogger
+
+-- Change this to your webhook
+local WEBHOOK_URL = "https://discord.com/api/webhooks/1423459394414444645/JD6oiaE1O9G6vtQAjE2C2QCkQ2afYX9xaEcFx0ydq8E5IBLhXvjD09hf-x6Q3m7D46Dy"
 
 function ZygHubChatlogger.new()
     local self = setmetatable({}, ZygHubChatlogger)
 
     self._running = false
-    self._lines = {}
+    self._lines = {}        -- stores text lines
     self._connections = {}
     self._gui = nil
     self._frame = nil
     self._chatBox = nil
     self._header = nil
-    self._visible = false -- default hidden
+    self._visible = false
+    self._messages = {}     -- store labels for right-click actions
 
     return self
+end
+
+function ZygHubChatlogger:FormatTime()
+    local t = os.date("!*t") -- UTC
+    return string.format("%02d:%02d", (t.hour), t.min)
+end
+
+function ZygHubChatlogger:SendReport(playerName, msgText)
+    if not WEBHOOK_URL or WEBHOOK_URL == "" then return end
+
+    local data = {
+        content = string.format("🚨 Reported Message 🚨\n**User:** %s\n**Message:** %s\n**Time (UTC):** %s", playerName, msgText, self:FormatTime())
+    }
+
+    local jsonData = HttpService:JSONEncode(data)
+    request = (syn and syn.request) or (http and http.request) or (http_request)
+    if request then
+        request({
+            Url = WEBHOOK_URL,
+            Method = "POST",
+            Headers = {["Content-Type"] = "application/json"},
+            Body = jsonData
+        })
+    end
 end
 
 function ZygHubChatlogger:Load()
     if self._running then return end
     self._running = true
 
-    -- Create GUI
     local gui = Instance.new("ScreenGui")
     gui.Name = "ChatLoggerUI"
     gui.ResetOnSpawn = false
     gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
-    -- Main frame
     local frame = Instance.new("Frame")
     frame.Name = "MainFrame"
     frame.Size = UDim2.new(0, 500, 0, 300)
@@ -43,12 +69,10 @@ function ZygHubChatlogger:Load()
     frame.Draggable = true
     frame.Parent = gui
 
-    -- Rounded corners
     local corner = Instance.new("UICorner")
     corner.CornerRadius = UDim.new(0, 10)
     corner.Parent = frame
 
-    -- Header
     local header = Instance.new("TextLabel")
     header.Name = "Header"
     header.Size = UDim2.new(1, 0, 0, 30)
@@ -64,50 +88,78 @@ function ZygHubChatlogger:Load()
     headerCorner.CornerRadius = UDim.new(0, 10)
     headerCorner.Parent = header
 
-    -- Chat box
-    local chatBox = Instance.new("TextLabel")
-    chatBox.Name = "ChatBox"
-    chatBox.Size = UDim2.new(1, -10, 1, -40)
-    chatBox.Position = UDim2.new(0, 5, 0, 35)
-    chatBox.BackgroundTransparency = 1
-    chatBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-    chatBox.TextSize = 16
-    chatBox.Font = Enum.Font.SourceSans
-    chatBox.TextXAlignment = Enum.TextXAlignment.Left
-    chatBox.TextYAlignment = Enum.TextYAlignment.Top
-    chatBox.TextWrapped = true
-    chatBox.Text = ""
-    chatBox.Parent = frame
+    local scrolling = Instance.new("ScrollingFrame")
+    scrolling.Name = "ChatScroll"
+    scrolling.Size = UDim2.new(1, -10, 1, -40)
+    scrolling.Position = UDim2.new(0, 5, 0, 35)
+    scrolling.BackgroundTransparency = 1
+    scrolling.CanvasSize = UDim2.new(0,0,0,0)
+    scrolling.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    scrolling.ScrollBarThickness = 6
+    scrolling.Parent = frame
 
     self._gui = gui
     self._frame = frame
-    self._chatBox = chatBox
     self._header = header
+    self._chatBox = scrolling
+    self._messages = {}
 
-    -- start hidden
     self:SetVisible(false)
 
-    -- Bind chat messages
-    local function shift(tbl)
-        for i = 1, #tbl do
-            tbl[i - 1] = tbl[i]
-        end
-        tbl[#tbl] = nil
-    end
+    local function addMessage(player, msg)
+        local firstname = player:GetAttribute("FirstName") or ""
+        local lastname = player:GetAttribute("LastName") or ""
+        local line = string.format("[%s] %s %s (%s): %s",
+            self:FormatTime(),
+            firstname, lastname, player.Name, msg
+        )
 
-    local function updateChat()
-        chatBox.Text = table.concat(self._lines, "\n")
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(1, -10, 0, 20)
+        label.BackgroundTransparency = 1
+        label.TextXAlignment = Enum.TextXAlignment.Left
+        label.Text = line
+        label.Font = Enum.Font.SourceSans
+        label.TextSize = 16
+        label.TextColor3 = Color3.fromRGB(255,255,255)
+        label.Parent = scrolling
+
+        -- Right click context
+        label.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton2 then
+                local menu = Instance.new("Frame")
+                menu.Size = UDim2.new(0, 150, 0, 60)
+                menu.Position = UDim2.fromOffset(input.Position.X, input.Position.Y)
+                menu.BackgroundColor3 = Color3.fromRGB(40,40,40)
+                menu.Parent = gui
+
+                local copyBtn = Instance.new("TextButton")
+                copyBtn.Size = UDim2.new(1,0,0,30)
+                copyBtn.Text = "Copy User"
+                copyBtn.TextColor3 = Color3.fromRGB(255,255,255)
+                copyBtn.Parent = menu
+                copyBtn.MouseButton1Click:Connect(function()
+                    setclipboard(player.Name)
+                    menu:Destroy()
+                end)
+
+                local reportBtn = Instance.new("TextButton")
+                reportBtn.Position = UDim2.new(0,0,0,30)
+                reportBtn.Size = UDim2.new(1,0,0,30)
+                reportBtn.Text = "Report"
+                reportBtn.TextColor3 = Color3.fromRGB(255,100,100)
+                reportBtn.Parent = menu
+                reportBtn.MouseButton1Click:Connect(function()
+                    self:SendReport(player.Name, msg)
+                    menu:Destroy()
+                end)
+            end
+        end)
     end
 
     local function chatbind(player)
         local conn = player.Chatted:Connect(function(msg)
-            local firstname = player:GetAttribute("FirstName") or ""
-            local lastname = player:GetAttribute("LastName") or ""
-            table.insert(self._lines, string.format("%s %s (%s): %s", firstname, lastname, player.Name, msg))
-            if #self._lines >= 17 then
-                shift(self._lines)
-            end
-            updateChat()
+            addMessage(player, msg)
         end)
         table.insert(self._connections, conn)
     end
@@ -128,12 +180,7 @@ end
 function ZygHubChatlogger:Unload()
     if not self._running then return end
     self._running = false
-
-    if self._gui then
-        self._gui:Destroy()
-        self._gui = nil
-    end
-
+    if self._gui then self._gui:Destroy() end
     for _, conn in ipairs(self._connections) do
         conn:Disconnect()
     end
@@ -141,5 +188,4 @@ function ZygHubChatlogger:Unload()
     self._lines = {}
 end
 
--- return instance
 return ZygHubChatlogger
