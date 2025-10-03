@@ -1,5 +1,4 @@
---// ZygHub Chatlogger [V5] - UI + Clipboard + Webhook Fix
-
+--// ZygHub Chatlogger [V4]
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local HttpService = game:GetService("HttpService")
