@@ -1,0 +1,234 @@
+--// ZygHub Chatlogger
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local HttpService = game:GetService("HttpService")
+local UserInputService = game:GetService("UserInputService")
+
+local ZygHubChatlogger = {}
+ZygHubChatlogger.__index = ZygHubChatlogger
+
+function ZygHubChatlogger.new()
+    local self = setmetatable({}, ZygHubChatlogger)
+
+    self._running = false
+    self._connections = {}
+    self._gui = nil
+    self._frame = nil
+    self._scrolling = nil
+    self._header = nil
+    self._visible = false -- default invisible
+
+    return self
+end
+
+function ZygHubChatlogger:Load()
+    if self._running then return end
+    self._running = true
+
+    -- Create GUI
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "ChatLoggerUI"
+    gui.ResetOnSpawn = false
+    gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+    -- Main frame
+    local frame = Instance.new("Frame")
+    frame.Name = "MainFrame"
+    frame.Size = UDim2.new(0, 500, 0, 300)
+    frame.Position = UDim2.new(0.3, 0, 0.3, 0)
+    frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    frame.BackgroundTransparency = 0.3
+    frame.Active = true
+    frame.Draggable = true
+    frame.Parent = gui
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 10)
+    corner.Parent = frame
+
+    -- Header
+    local header = Instance.new("TextLabel")
+    header.Name = "Header"
+    header.Size = UDim2.new(1, 0, 0, 30)
+    header.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+    header.BackgroundTransparency = 0.2
+    header.Text = "Chat Logger"
+    header.TextColor3 = Color3.fromRGB(255, 255, 255)
+    header.TextSize = 18
+    header.Font = Enum.Font.SourceSansBold
+    header.Parent = frame
+
+    local headerCorner = Instance.new("UICorner")
+    headerCorner.CornerRadius = UDim.new(0, 10)
+    headerCorner.Parent = header
+
+    -- Scrolling container
+    local scrolling = Instance.new("ScrollingFrame")
+    scrolling.Name = "ChatScroll"
+    scrolling.Size = UDim2.new(1, -10, 1, -40)
+    scrolling.Position = UDim2.new(0, 5, 0, 35)
+    scrolling.BackgroundTransparency = 1
+    scrolling.ScrollBarThickness = 8
+    scrolling.CanvasSize = UDim2.new(0, 0, 0, 0)
+    scrolling.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    scrolling.Parent = frame
+
+    local layout = Instance.new("UIListLayout")
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Padding = UDim.new(0, 2)
+    layout.Parent = scrolling
+
+    self._gui = gui
+    self._frame = frame
+    self._scrolling = scrolling
+    self._header = header
+    self._visible = false
+    self:SetVisible(false)
+
+    -- Right-click menu GUI (hidden by default)
+    local menu = Instance.new("Frame")
+    menu.Size = UDim2.new(0, 150, 0, 60)
+    menu.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    menu.Visible = false
+    menu.ZIndex = 10
+    menu.Parent = gui
+
+    local menuCorner = Instance.new("UICorner")
+    menuCorner.CornerRadius = UDim.new(0, 5)
+    menuCorner.Parent = menu
+
+    local copyButton = Instance.new("TextButton")
+    copyButton.Size = UDim2.new(1, 0, 0, 30)
+    copyButton.Position = UDim2.new(0, 0, 0, 0)
+    copyButton.Text = "Copy Username"
+    copyButton.Font = Enum.Font.SourceSans
+    copyButton.TextSize = 14
+    copyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    copyButton.BackgroundTransparency = 0.2
+    copyButton.Parent = menu
+
+    local reportButton = Instance.new("TextButton")
+    reportButton.Size = UDim2.new(1, 0, 0, 30)
+    reportButton.Position = UDim2.new(0, 0, 0, 30)
+    reportButton.Text = "Report Message"
+    reportButton.Font = Enum.Font.SourceSans
+    reportButton.TextSize = 14
+    reportButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    reportButton.BackgroundTransparency = 0.2
+    reportButton.Parent = menu
+
+    local selectedMessageData = nil -- store current message info
+
+    local function createMessage(text, player)
+        local timestamp = os.date("%H:%M:%S")
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(1, -10, 0, 20)
+        label.BackgroundTransparency = 1
+        label.TextColor3 = Color3.fromRGB(255, 255, 255)
+        label.TextSize = 16
+        label.Font = Enum.Font.SourceSans
+        label.TextXAlignment = Enum.TextXAlignment.Left
+        label.TextYAlignment = Enum.TextYAlignment.Top
+        label.TextWrapped = true
+        label.AutomaticSize = Enum.AutomaticSize.Y
+        label.Text = string.format("[%s] %s (%s): %s", timestamp, player.Name, player.UserId, text)
+        label.Parent = scrolling
+
+        -- Right-click detection
+        label.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton2 then
+                selectedMessageData = {
+                    message = text,
+                    player = player
+                }
+                local mousePos = input.Position
+                menu.Position = UDim2.new(0, mousePos.X, 0, mousePos.Y)
+                menu.Visible = true
+            end
+        end)
+    end
+
+    -- Copy Username button
+    copyButton.MouseButton1Click:Connect(function()
+        if selectedMessageData then
+            setclipboard(selectedMessageData.player.Name)
+        end
+        menu.Visible = false
+    end)
+
+    -- Report Message button
+    reportButton.MouseButton1Click:Connect(function()
+        if selectedMessageData then
+            local webhookUrl = "https://discord.com/api/webhooks/1423459394414444645/JD6oiaE1O9G6vtQAjE2C2QCkQ2afYX9xaEcFx0ydq8E5IBLhXvjD09hf-x6Q3m7D46Dy"
+            local data = {
+                content = string.format("*Chat monitoring alert: Report sent*\n-Date: %s\n-Time: %s\n\n*Reported Person:*\n**[Username:]** %s **[Player ID:]** %d\n**Flagged/Reported Message:** %s\n\n*Reporter:*\n**[Username:]** %s **[Player ID:]** %d\n**HWID:** %s",
+                    os.date("%x"),
+                    os.date("%H:%M:%S"),
+                    selectedMessageData.player.Name,
+                    selectedMessageData.player.UserId,
+                    selectedMessageData.message,
+                    LocalPlayer.Name,
+                    LocalPlayer.UserId,
+                    game:GetService("RbxAnalyticsService"):GetClientId() or "N/A"
+                )
+            }
+            local headers = {
+                ["Content-Type"] = "application/json"
+            }
+            pcall(function()
+                HttpService:PostAsync(webhookUrl, HttpService:JSONEncode(data), Enum.HttpContentType.ApplicationJson, false)
+            end)
+        end
+        menu.Visible = false
+    end)
+
+    -- Hide menu when clicking anywhere else (left or right)
+    UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if menu.Visible and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.MouseButton2) then
+            local mousePos = UserInputService:GetMouseLocation()
+            local menuPos = menu.AbsolutePosition
+            local menuSize = menu.AbsoluteSize
+            if not (mousePos.X >= menuPos.X and mousePos.X <= menuPos.X + menuSize.X and
+                    mousePos.Y >= menuPos.Y and mousePos.Y <= menuPos.Y + menuSize.Y) then
+                menu.Visible = false
+            end
+        end
+    end)
+
+    local function chatbind(player)
+        local conn = player.Chatted:Connect(function(msg)
+            createMessage(msg, player)
+        end)
+        table.insert(self._connections, conn)
+    end
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        chatbind(player)
+    end
+    table.insert(self._connections, Players.PlayerAdded:Connect(chatbind))
+end
+
+function ZygHubChatlogger:SetVisible(state)
+    self._visible = state
+    if self._frame then
+        self._frame.Visible = state
+    end
+end
+
+function ZygHubChatlogger:Unload()
+    if not self._running then return end
+    self._running = false
+
+    if self._gui then
+        self._gui:Destroy()
+        self._gui = nil
+    end
+
+    for _, conn in ipairs(self._connections) do
+        conn:Disconnect()
+    end
+    self._connections = {}
+end
+
+return ZygHubChatlogger
