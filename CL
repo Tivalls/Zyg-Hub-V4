@@ -1,4 +1,4 @@
---// ZygHub Chatlogger
+--// ZygHub Chatlogger [V4]
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -17,6 +17,9 @@ function ZygHubChatlogger.new()
     self._header = nil
     self._visible = false -- default invisible
 
+    -- Auto-scroll toggle (can be set externally)
+    self._autoScrollEnabled = false
+
     return self
 end
 
@@ -33,7 +36,7 @@ function ZygHubChatlogger:Load()
     -- Main frame
     local frame = Instance.new("Frame")
     frame.Name = "MainFrame"
-    frame.Size = UDim2.new(0, 500, 0, 330) -- taller for toggle
+    frame.Size = UDim2.new(0, 500, 0, 300)
     frame.Position = UDim2.new(0.3, 0, 0.3, 0)
     frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
     frame.BackgroundTransparency = 0.3
@@ -62,33 +65,11 @@ function ZygHubChatlogger:Load()
     headerCorner.CornerRadius = UDim.new(0, 10)
     headerCorner.Parent = header
 
-    -- Auto-scroll toggle
-    local autoScrollEnabled = true
-    local toggleButton = Instance.new("TextButton")
-    toggleButton.Name = "AutoScrollToggle"
-    toggleButton.Size = UDim2.new(0, 120, 0, 25)
-    toggleButton.Position = UDim2.new(0, 10, 0, 35)
-    toggleButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    toggleButton.TextSize = 14
-    toggleButton.Font = Enum.Font.SourceSans
-    toggleButton.Text = "Auto Scroll: ON"
-    toggleButton.Parent = frame
-
-    local toggleCorner = Instance.new("UICorner")
-    toggleCorner.CornerRadius = UDim.new(0, 5)
-    toggleCorner.Parent = toggleButton
-
-    toggleButton.MouseButton1Click:Connect(function()
-        autoScrollEnabled = not autoScrollEnabled
-        toggleButton.Text = "Auto Scroll: " .. (autoScrollEnabled and "ON" or "OFF")
-    end)
-
     -- Scrolling container
     local scrolling = Instance.new("ScrollingFrame")
     scrolling.Name = "ChatScroll"
-    scrolling.Size = UDim2.new(1, -10, 1, -70) -- leave space for toggle
-    scrolling.Position = UDim2.new(0, 5, 0, 65)
+    scrolling.Size = UDim2.new(1, -10, 1, -40)
+    scrolling.Position = UDim2.new(0, 5, 0, 35)
     scrolling.BackgroundTransparency = 1
     scrolling.ScrollBarThickness = 8
     scrolling.CanvasSize = UDim2.new(0, 0, 0, 0)
@@ -125,7 +106,7 @@ function ZygHubChatlogger:Load()
         label.Parent = scrolling
 
         -- Auto-scroll if enabled
-        if autoScrollEnabled then
+        if self._autoScrollEnabled then
             scrolling.CanvasPosition = Vector2.new(0, scrolling.CanvasSize.Y.Offset)
         end
     end
@@ -144,6 +125,11 @@ function ZygHubChatlogger:Load()
         chatbind(player)
     end
     table.insert(self._connections, Players.PlayerAdded:Connect(chatbind))
+end
+
+-- Optional function to allow external toggle control
+function ZygHubChatlogger:SetAutoScroll(state)
+    self._autoScrollEnabled = state
 end
 
 function ZygHubChatlogger:SetVisible(state)
