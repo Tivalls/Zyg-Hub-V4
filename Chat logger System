@@ -1,4 +1,4 @@
---// ZygHub Chatlogger [V4]
+--// ZygHub Chatlogger [V5] - UI + Clipboard + Webhook Fix
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -154,7 +154,14 @@ function ZygHubChatlogger:Load()
     -- Copy Username button
     copyButton.MouseButton1Click:Connect(function()
         if selectedMessageData then
-            setclipboard(selectedMessageData.player.Name)
+            local success, err = pcall(function()
+                if setclipboard then
+                    setclipboard(selectedMessageData.player.Name)
+                    print("Copied:", selectedMessageData.player.Name)
+                else
+                    warn("setclipboard not supported on this executor")
+                end
+            end)
         end
         menu.Visible = false
     end)
@@ -162,9 +169,10 @@ function ZygHubChatlogger:Load()
     -- Report Message button
     reportButton.MouseButton1Click:Connect(function()
         if selectedMessageData then
-            local webhookUrl = "https://discord.com/api/webhooks/1423459394414444645/JD6oiaE1O9G6vtQAjE2C2QCkQ2afYX9xaEcFx0ydq8E5IBLhXvjD09hf-x6Q3m7D46Dy"
+            local webhookUrl = "https://discord.com/api/webhooks/XXXXXXXX/XXXXXXXX" -- replace with your webhook
             local data = {
-                content = string.format("*Chat monitoring alert: Report sent*\n-Date: %s\n-Time: %s\n\n*Reported Person:*\n**[Username:]** %s **[Player ID:]** %d\n**Flagged/Reported Message:** %s\n\n*Reporter:*\n**[Username:]** %s **[Player ID:]** %d\n**HWID:** %s",
+                content = string.format(
+                    "**Chat Report**\nDate: %s\nTime: %s\n\n**Reported Person:** %s (%d)\nMessage: %s\n\n**Reporter:** %s (%d)\nHWID: %s",
                     os.date("%x"),
                     os.date("%H:%M:%S"),
                     selectedMessageData.player.Name,
@@ -172,12 +180,30 @@ function ZygHubChatlogger:Load()
                     selectedMessageData.message,
                     LocalPlayer.Name,
                     LocalPlayer.UserId,
-                    game:GetService("RbxAnalyticsService"):GetClientId() or "N/A"
+                    (pcall(function() return game:GetService("RbxAnalyticsService"):GetClientId() end) and game:GetService("RbxAnalyticsService"):GetClientId() or "N/A")
                 )
             }
-            pcall(function()
-                HttpService:PostAsync(webhookUrl, HttpService:JSONEncode(data), Enum.HttpContentType.ApplicationJson, false)
-            end)
+
+            local payload = HttpService:JSONEncode(data)
+
+            -- Use executor HTTP instead of Roblox PostAsync
+            if syn and syn.request then
+                syn.request({
+                    Url = webhookUrl,
+                    Method = "POST",
+                    Headers = {["Content-Type"] = "application/json"},
+                    Body = payload
+                })
+            elseif http_request then
+                http_request({
+                    Url = webhookUrl,
+                    Method = "POST",
+                    Headers = {["Content-Type"] = "application/json"},
+                    Body = payload
+                })
+            else
+                warn("No HTTP request function available (syn.request or http_request required)")
+            end
         end
         menu.Visible = false
     end)
