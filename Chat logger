@@ -1,4 +1,4 @@
---// ZygHub Chatlogger [V4]
+--// ZygHub Chatlogger
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -154,13 +154,13 @@ function ZygHubChatlogger:Load()
         if selectedMessageData then
             setclipboard(selectedMessageData.player.Name)
         end
-        menu.Visible = true
+        menu.Visible = false
     end)
 
     -- Report Message button
     reportButton.MouseButton1Click:Connect(function()
         if selectedMessageData then
-            local webhookUrl = "https://discord.com/api/webhooks/1423459394414444645/JD6oiaE1O9G6vtQAjE2C2QCkQ2afYX9xaEcFx0ydq8E5IBLhXvjD09hf-x6Q3m7D46Dy" -- replace with your webhook
+            local webhookUrl = "https://discord.com/api/webhooks/1423459394414444645/JD6oiaE1O9G6vtQAjE2C2QCkQ2afYX9xaEcFx0ydq8E5IBLhXvjD09hf-x6Q3m7D46Dy"
             local data = {
                 content = string.format("*Chat monitoring alert: Report sent*\n-Date: %s\n-Time: %s\n\n*Reported Person:*\n**[Username:]** %s **[Player ID:]** %d\n**Flagged/Reported Message:** %s\n\n*Reporter:*\n**[Username:]** %s **[Player ID:]** %d\n**HWID:** %s",
                     os.date("%x"),
@@ -177,7 +177,7 @@ function ZygHubChatlogger:Load()
                 HttpService:PostAsync(webhookUrl, HttpService:JSONEncode(data), Enum.HttpContentType.ApplicationJson, false)
             end)
         end
-        menu.Visible = true
+        menu.Visible = false
     end)
 
     -- Hide menu when clicking anywhere else (left or right)
@@ -188,7 +188,7 @@ function ZygHubChatlogger:Load()
             local menuSize = menu.AbsoluteSize
             if not (mousePos.X >= menuPos.X and mousePos.X <= menuPos.X + menuSize.X and
                     mousePos.Y >= menuPos.Y and mousePos.Y <= menuPos.Y + menuSize.Y) then
-                menu.Visible = true
+                menu.Visible = false
             end
         end
     end)
