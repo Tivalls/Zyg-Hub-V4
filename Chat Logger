@@ -1,0 +1,173 @@
+-- ChatLoggerModule.lua
+-- Load with: 
+-- local ChatloggerModule = loadstring(game:HttpGet("your_github_url"))()
+-- local Chatlogger = ChatloggerModule.new()
+-- Chatlogger:Load()
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local UserInputService = game:GetService("UserInputService")
+local HttpService = game:GetService("HttpService")
+local Http = game:GetService("HttpService")
+
+-- Your webhook (replace with your Discord webhook URL)
+local WEBHOOK_URL = "https://discord.com/api/webhooks/1423459394414444645/JD6oiaE1O9G6vtQAjE2C2QCkQ2afYX9xaEcFx0ydq8E5IBLhXvjD09hf-x6Q3m7D46Dy"
+
+local ZygHubChatlogger = {}
+ZygHubChatlogger.__index = ZygHubChatlogger
+
+function ZygHubChatlogger.new()
+    local self = setmetatable({}, ZygHubChatlogger)
+
+    self._running = false
+    self._connections = {}
+    self._gui = nil
+    self._frame = nil
+    self._scrolling = nil
+    self._visible = false
+
+    return self
+end
+
+-- Helper: format time in [HH:MM]
+local function getTimestamp()
+    local t = os.date("!*t") -- UTC
+    return string.format("[%02d:%02d]", t.hour, t.min)
+end
+
+-- Report to Discord webhook
+local function sendReport(player, message)
+    local payload = {
+        ["username"] = "ChatLogger",
+        ["embeds"] = {{
+            ["title"] = "Reported Message",
+            ["description"] = "**User:** " .. player.Name .. "\n**Message:** " .. message,
+            ["color"] = 15158332
+        }}
+    }
+
+    Http:PostAsync(WEBHOOK_URL, HttpService:JSONEncode(payload))
+end
+
+-- Create GUI
+function ZygHubChatlogger:_createGui()
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "ChatLoggerUI"
+    gui.ResetOnSpawn = false
+    gui.IgnoreGuiInset = true
+
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 400, 0, 300)
+    frame.Position = UDim2.new(0.5, -200, 0.5, -150)
+    frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    frame.BackgroundTransparency = 0.2
+    frame.Active = true
+    frame.Draggable = true
+    frame.Parent = gui
+
+    local header = Instance.new("TextLabel")
+    header.Size = UDim2.new(1, 0, 0, 25)
+    header.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    header.BackgroundTransparency = 0.3
+    header.Text = "Chat Logger"
+    header.TextColor3 = Color3.fromRGB(255,255,255)
+    header.Font = Enum.Font.SourceSansBold
+    header.TextSize = 18
+    header.Parent = frame
+
+    local scrolling = Instance.new("ScrollingFrame")
+    scrolling.Name = "ChatScroll"
+    scrolling.Size = UDim2.new(1, -10, 1, -35)
+    scrolling.Position = UDim2.new(0, 5, 0, 30)
+    scrolling.BackgroundTransparency = 1
+    scrolling.CanvasSize = UDim2.new(0,0,0,0)
+    scrolling.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    scrolling.ScrollBarThickness = 8
+    scrolling.ScrollingDirection = Enum.ScrollingDirection.Y
+    scrolling.Parent = frame
+
+    self._gui = gui
+    self._frame = frame
+    self._scrolling = scrolling
+
+    gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+end
+
+-- Add message
+function ZygHubChatlogger:_addMessage(player, msg)
+    if not self._scrolling then return end
+
+    local text = string.format("%s %s: %s", getTimestamp(), player.Name, msg)
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, -10, 0, 20)
+    label.BackgroundTransparency = 1
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.TextYAlignment = Enum.TextYAlignment.Top
+    label.Text = text
+    label.Font = Enum.Font.SourceSans
+    label.TextSize = 16
+    label.TextColor3 = Color3.fromRGB(255,255,255)
+    label.TextWrapped = true
+    label.TextTruncate = Enum.TextTruncate.None
+    label.AutomaticSize = Enum.AutomaticSize.Y
+    label.Parent = self._scrolling
+
+    -- Right click to report
+    label.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton2 then
+            -- Right-click: report
+            setclipboard(player.Name) -- copy username
+            sendReport(player, msg)
+        end
+    end)
+end
+
+-- Bind chat
+function ZygHubChatlogger:_bindPlayer(player)
+    local conn = player.Chatted:Connect(function(msg)
+        self:_addMessage(player, msg)
+    end)
+    table.insert(self._connections, conn)
+end
+
+-- Load
+function ZygHubChatlogger:Load()
+    if self._running then return end
+    self._running = true
+
+    self:_createGui()
+    self:SetVisible(false)
+
+    for _, player in pairs(Players:GetPlayers()) do
+        self:_bindPlayer(player)
+    end
+
+    local conn = Players.PlayerAdded:Connect(function(p)
+        self:_bindPlayer(p)
+    end)
+    table.insert(self._connections, conn)
+end
+
+-- Visibility toggle
+function ZygHubChatlogger:SetVisible(state)
+    self._visible = state
+    if self._frame then
+        self._frame.Visible = state
+    end
+end
+
+-- Unload
+function ZygHubChatlogger:Unload()
+    self._running = false
+    for _, c in ipairs(self._connections) do
+        c:Disconnect()
+    end
+    self._connections = {}
+    if self._gui then
+        self._gui:Destroy()
+        self._gui = nil
+    end
+end
+
+return ZygHubChatlogger
