@@ -10,11 +10,10 @@ function ZygHubChatlogger.new()
     local self = setmetatable({}, ZygHubChatlogger)
 
     self._running = false
-    self._lines = {}
     self._connections = {}
     self._gui = nil
     self._frame = nil
-    self._chatBox = nil
+    self._scrolling = nil
     self._header = nil
     self._visible = false -- default invisible
 
@@ -63,50 +62,53 @@ function ZygHubChatlogger:Load()
     headerCorner.CornerRadius = UDim.new(0, 10)
     headerCorner.Parent = header
 
-    -- Chat box
-    local chatBox = Instance.new("TextLabel")
-    chatBox.Name = "ChatBox"
-    chatBox.Size = UDim2.new(1, -10, 1, -40)
-    chatBox.Position = UDim2.new(0, 5, 0, 35)
-    chatBox.BackgroundTransparency = 1
-    chatBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-    chatBox.TextSize = 16
-    chatBox.Font = Enum.Font.SourceSans
-    chatBox.TextXAlignment = Enum.TextXAlignment.Left
-    chatBox.TextYAlignment = Enum.TextYAlignment.Top
-    chatBox.TextWrapped = true
-    chatBox.Text = ""
-    chatBox.Parent = frame
+    -- Scrolling container
+    local scrolling = Instance.new("ScrollingFrame")
+    scrolling.Name = "ChatScroll"
+    scrolling.Size = UDim2.new(1, -10, 1, -40)
+    scrolling.Position = UDim2.new(0, 5, 0, 35)
+    scrolling.BackgroundTransparency = 1
+    scrolling.ScrollBarThickness = 8
+    scrolling.CanvasSize = UDim2.new(0, 0, 0, 0)
+    scrolling.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    scrolling.Parent = frame
+
+    -- Layout
+    local layout = Instance.new("UIListLayout")
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Padding = UDim.new(0, 2)
+    layout.Parent = scrolling
 
     self._gui = gui
     self._frame = frame
-    self._chatBox = chatBox
+    self._scrolling = scrolling
     self._header = header
 
     -- start hidden
     self:SetVisible(false)
 
-    -- Bind chat messages
-    local function shift(tbl)
-        for i = 1, #tbl do
-            tbl[i - 1] = tbl[i]
-        end
-        tbl[#tbl] = nil
-    end
-
-    local function updateChat()
-        chatBox.Text = table.concat(self._lines, "\n")
+    -- Chat binding
+    local function createMessage(text)
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(1, -10, 0, 20)
+        label.BackgroundTransparency = 1
+        label.TextColor3 = Color3.fromRGB(255, 255, 255)
+        label.TextSize = 16
+        label.Font = Enum.Font.SourceSans
+        label.TextXAlignment = Enum.TextXAlignment.Left
+        label.TextYAlignment = Enum.TextYAlignment.Top
+        label.TextWrapped = true
+        label.AutomaticSize = Enum.AutomaticSize.Y
+        label.Text = text
+        label.Parent = scrolling
     end
 
     local function chatbind(player)
         local conn = player.Chatted:Connect(function(msg)
             local firstname = player:GetAttribute("FirstName") or ""
             local lastname = player:GetAttribute("LastName") or ""
-            table.insert(self._lines, string.format("%s %s (%s): %s", firstname, lastname, player.Name, msg))
-            if #self._lines >= 17 then
-                shift(self._lines)
-            end
-            updateChat()
+            local line = string.format("%s %s (%s): %s", firstname, lastname, player.Name, msg)
+            createMessage(line)
         end)
         table.insert(self._connections, conn)
     end
@@ -137,7 +139,6 @@ function ZygHubChatlogger:Unload()
         conn:Disconnect()
     end
     self._connections = {}
-    self._lines = {}
 end
 
 return ZygHubChatlogger
