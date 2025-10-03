@@ -1,4 +1,4 @@
---// ZygHub Chatlogger [V4]
+--// ZygHub Chatlogger
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -18,7 +18,7 @@ function ZygHubChatlogger.new()
     self._visible = false -- default invisible
 
     -- Auto-scroll toggle (can be set externally)
-    self._autoScrollEnabled = (AutoscrollValue)
+    self._autoScrollEnabled = true
 
     return self
 end
