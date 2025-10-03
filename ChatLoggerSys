@@ -89,7 +89,7 @@ function ZygHubChatlogger:Load()
     -- Right-click menu GUI (hidden by default)
     local menu = Instance.new("Frame")
     menu.Size = UDim2.new(0, 150, 0, 60)
-    menu.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    menu.BackgroundColor3 = Color3.fromRGB(40, 40, 40) -- darker color so it's visible
     menu.Visible = false
     menu.ZIndex = 10
     menu.Parent = gui
@@ -105,7 +105,7 @@ function ZygHubChatlogger:Load()
     copyButton.Font = Enum.Font.SourceSans
     copyButton.TextSize = 14
     copyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    copyButton.BackgroundTransparency = 0.2
+    copyButton.BackgroundColor3 = Color3.fromRGB(70, 70, 70) -- make it visible
     copyButton.Parent = menu
 
     local reportButton = Instance.new("TextButton")
@@ -115,7 +115,7 @@ function ZygHubChatlogger:Load()
     reportButton.Font = Enum.Font.SourceSans
     reportButton.TextSize = 14
     reportButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    reportButton.BackgroundTransparency = 0.2
+    reportButton.BackgroundColor3 = Color3.fromRGB(70, 70, 70) -- make it visible
     reportButton.Parent = menu
 
     local selectedMessageData = nil -- store current message info
@@ -132,7 +132,7 @@ function ZygHubChatlogger:Load()
         label.TextYAlignment = Enum.TextYAlignment.Top
         label.TextWrapped = true
         label.AutomaticSize = Enum.AutomaticSize.Y
-        label.Text = string.format("[%s] %s (%s): %s", timestamp, player.Name, player.UserId, text)
+        label.Text = string.format("[%s] %s: %s", timestamp, player.Name, text) -- removed player ID
         label.Parent = scrolling
 
         -- Right-click detection
@@ -160,7 +160,7 @@ function ZygHubChatlogger:Load()
     -- Report Message button
     reportButton.MouseButton1Click:Connect(function()
         if selectedMessageData then
-            local webhookUrl = "https://discord.com/api/webhooks/1423459394414444645/JD6oiaE1O9G6vtQAjE2C2QCkQ2afYX9xaEcFx0ydq8E5IBLhXvjD09hf-x6Q3m7D46Dy"
+            local webhookUrl = "YOUR_DISCORD_WEBHOOK_URL_HERE" -- replace with your webhook
             local data = {
                 content = string.format("*Chat monitoring alert: Report sent*\n-Date: %s\n-Time: %s\n\n*Reported Person:*\n**[Username:]** %s **[Player ID:]** %d\n**Flagged/Reported Message:** %s\n\n*Reporter:*\n**[Username:]** %s **[Player ID:]** %d\n**HWID:** %s",
                     os.date("%x"),
@@ -172,9 +172,6 @@ function ZygHubChatlogger:Load()
                     LocalPlayer.UserId,
                     game:GetService("RbxAnalyticsService"):GetClientId() or "N/A"
                 )
-            }
-            local headers = {
-                ["Content-Type"] = "application/json"
             }
             pcall(function()
                 HttpService:PostAsync(webhookUrl, HttpService:JSONEncode(data), Enum.HttpContentType.ApplicationJson, false)
