@@ -1,4 +1,4 @@
---//Chatlogger Module.lua
+--// Chat Logger GUI with Fixed-Line Messages + Context Menu //-- 
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -51,7 +51,7 @@ ScrollingFrame.ScrollBarThickness = 6
 local ListLayout = Instance.new("UIListLayout")
 ListLayout.Parent = ScrollingFrame
 ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-ListLayout.Padding = UDim.new(0, 5)
+ListLayout.Padding = UDim.new(0, 2)
 
 -- Context Menu (hidden by default)
 local ContextMenu = Instance.new("Frame")
@@ -91,15 +91,12 @@ end)
 local function LogMessage(playerName, message)
 	local TextLabel = Instance.new("TextLabel")
 	TextLabel.Parent = ScrollingFrame
-	TextLabel.Size = UDim2.new(1, -10, 0, 0) -- Auto-adjust height
+	TextLabel.Size = UDim2.new(1, -10, 0, 20) -- fixed height again
 	TextLabel.BackgroundTransparency = 1
 	TextLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 	TextLabel.Font = Enum.Font.SourceSans
-	TextLabel.TextWrapped = true
-	TextLabel.TextXAlignment = Enum.TextXAlignment.Left
-	TextLabel.TextYAlignment = Enum.TextYAlignment.Top
 	TextLabel.TextSize = 16
-	TextLabel.AutomaticSize = Enum.AutomaticSize.Y
+	TextLabel.TextXAlignment = Enum.TextXAlignment.Left
 	TextLabel.Text = playerName .. ": " .. message
 
 	-- Right-click to show context menu
@@ -116,7 +113,7 @@ local function LogMessage(playerName, message)
 
 			-- Update ReportButton action
 			ReportButton.MouseButton1Click:Connect(function()
-				print("Reporting " .. playerName) -- Replace with report system
+				print("Reporting " .. playerName .. ": " .. message) -- Replace with webhook call
 				ContextMenu.Visible = false
 			end)
 		end
