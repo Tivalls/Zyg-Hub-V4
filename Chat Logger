@@ -1,169 +1,146 @@
---// ChatLoggerModule.lua
+--//Chatlogger Module.lua
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-local UserInputService = game:GetService("UserInputService")
-local HttpService = game:GetService("HttpService")
-local Http = game:GetService("HttpService")
 
--- Your webhook (replace with your Discord webhook URL)
-local WEBHOOK_URL = "https://discord.com/api/webhooks/XXXXX/XXXXX"
+-- Create ScreenGui
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "ChatLogger"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
-local ZygHubChatlogger = {}
-ZygHubChatlogger.__index = ZygHubChatlogger
+-- Create Frame
+local Frame = Instance.new("Frame")
+Frame.Parent = ScreenGui
+Frame.Size = UDim2.new(0, 400, 0, 300)
+Frame.Position = UDim2.new(0.3, 0, 0.3, 0)
+Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+Frame.BorderSizePixel = 0
 
-function ZygHubChatlogger.new()
-    local self = setmetatable({}, ZygHubChatlogger)
+-- UI Corner for rounded edges
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 8)
+UICorner.Parent = Frame
 
-    self._running = false
-    self._connections = {}
-    self._gui = nil
-    self._frame = nil
-    self._scrolling = nil
-    self._visible = false
+-- Title
+local Title = Instance.new("TextLabel")
+Title.Parent = Frame
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+Title.Text = "Chat Logger"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Font = Enum.Font.SourceSansBold
+Title.TextSize = 20
 
-    return self
+-- UI Corner for Title
+local TitleCorner = Instance.new("UICorner")
+TitleCorner.CornerRadius = UDim.new(0, 8)
+TitleCorner.Parent = Title
+
+-- ScrollingFrame
+local ScrollingFrame = Instance.new("ScrollingFrame")
+ScrollingFrame.Parent = Frame
+ScrollingFrame.Size = UDim2.new(1, -10, 1, -40)
+ScrollingFrame.Position = UDim2.new(0, 5, 0, 35)
+ScrollingFrame.BackgroundTransparency = 1
+ScrollingFrame.BorderSizePixel = 0
+ScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+ScrollingFrame.ScrollBarThickness = 6
+
+-- UIListLayout to stack messages
+local ListLayout = Instance.new("UIListLayout")
+ListLayout.Parent = ScrollingFrame
+ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+ListLayout.Padding = UDim.new(0, 5)
+
+-- Context Menu (hidden by default)
+local ContextMenu = Instance.new("Frame")
+ContextMenu.Size = UDim2.new(0, 120, 0, 60)
+ContextMenu.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+ContextMenu.Visible = false
+ContextMenu.ZIndex = 10
+ContextMenu.Parent = ScreenGui
+
+local CopyButton = Instance.new("TextButton")
+CopyButton.Parent = ContextMenu
+CopyButton.Size = UDim2.new(1, 0, 0.5, 0)
+CopyButton.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+CopyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+CopyButton.Font = Enum.Font.SourceSans
+CopyButton.TextSize = 16
+CopyButton.Text = "Copy User"
+
+local ReportButton = Instance.new("TextButton")
+ReportButton.Parent = ContextMenu
+ReportButton.Position = UDim2.new(0, 0, 0.5, 0)
+ReportButton.Size = UDim2.new(1, 0, 0.5, 0)
+ReportButton.BackgroundColor3 = Color3.fromRGB(90, 50, 50)
+ReportButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ReportButton.Font = Enum.Font.SourceSans
+ReportButton.TextSize = 16
+ReportButton.Text = "Report"
+
+-- Hide context menu when clicking elsewhere
+ScreenGui.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		ContextMenu.Visible = false
+	end
+end)
+
+-- Function to log chat messages
+local function LogMessage(playerName, message)
+	local TextLabel = Instance.new("TextLabel")
+	TextLabel.Parent = ScrollingFrame
+	TextLabel.Size = UDim2.new(1, -10, 0, 0) -- Auto-adjust height
+	TextLabel.BackgroundTransparency = 1
+	TextLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	TextLabel.Font = Enum.Font.SourceSans
+	TextLabel.TextWrapped = true
+	TextLabel.TextXAlignment = Enum.TextXAlignment.Left
+	TextLabel.TextYAlignment = Enum.TextYAlignment.Top
+	TextLabel.TextSize = 16
+	TextLabel.AutomaticSize = Enum.AutomaticSize.Y
+	TextLabel.Text = playerName .. ": " .. message
+
+	-- Right-click to show context menu
+	TextLabel.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton2 then
+			ContextMenu.Position = UDim2.fromOffset(input.Position.X, input.Position.Y)
+			ContextMenu.Visible = true
+
+			-- Update CopyButton action
+			CopyButton.MouseButton1Click:Connect(function()
+				setclipboard(playerName) -- Requires exploit environment
+				ContextMenu.Visible = false
+			end)
+
+			-- Update ReportButton action
+			ReportButton.MouseButton1Click:Connect(function()
+				print("Reporting " .. playerName) -- Replace with report system
+				ContextMenu.Visible = false
+			end)
+		end
+	end)
+
+	-- Update canvas size
+	ScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, ListLayout.AbsoluteContentSize.Y)
 end
 
--- Helper: format time in [HH:MM]
-local function getTimestamp()
-    local t = os.date("!*t") -- UTC
-    return string.format("[%02d:%02d]", t.hour, t.min)
+-- Update canvas size when messages are added
+ListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+	ScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, ListLayout.AbsoluteContentSize.Y)
+end)
+
+-- Listen to chat messages
+Players.PlayerAdded:Connect(function(player)
+	player.Chatted:Connect(function(msg)
+		LogMessage(player.Name, msg)
+	end)
+end)
+
+-- For already connected players
+for _, player in ipairs(Players:GetPlayers()) do
+	player.Chatted:Connect(function(msg)
+		LogMessage(player.Name, msg)
+	end)
 end
-
--- Report to Discord webhook
-local function sendReport(player, message)
-    local payload = {
-        ["username"] = "ChatLogger",
-        ["embeds"] = {{
-            ["title"] = "Reported Message",
-            ["description"] = "**User:** " .. player.Name .. "\n**Message:** " .. message,
-            ["color"] = 15158332
-        }}
-    }
-
-    Http:PostAsync(WEBHOOK_URL, HttpService:JSONEncode(payload))
-end
-
--- Create GUI
-function ZygHubChatlogger:_createGui()
-    local gui = Instance.new("ScreenGui")
-    gui.Name = "ChatLoggerUI"
-    gui.ResetOnSpawn = false
-    gui.IgnoreGuiInset = true
-
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 400, 0, 300)
-    frame.Position = UDim2.new(0.5, -200, 0.5, -150)
-    frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    frame.BackgroundTransparency = 0.2
-    frame.Active = true
-    frame.Draggable = true
-    frame.Parent = gui
-
-    local header = Instance.new("TextLabel")
-    header.Size = UDim2.new(1, 0, 0, 25)
-    header.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    header.BackgroundTransparency = 0.3
-    header.Text = "Chat Logger"
-    header.TextColor3 = Color3.fromRGB(255,255,255)
-    header.Font = Enum.Font.SourceSansBold
-    header.TextSize = 18
-    header.Parent = frame
-
-    local scrolling = Instance.new("ScrollingFrame")
-    scrolling.Name = "ChatScroll"
-    scrolling.Size = UDim2.new(1, -10, 1, -35)
-    scrolling.Position = UDim2.new(0, 5, 0, 30)
-    scrolling.BackgroundTransparency = 1
-    scrolling.CanvasSize = UDim2.new(0,0,0,0)
-    scrolling.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    scrolling.ScrollBarThickness = 8
-    scrolling.ScrollingDirection = Enum.ScrollingDirection.Y
-    scrolling.Parent = frame
-
-    self._gui = gui
-    self._frame = frame
-    self._scrolling = scrolling
-
-    gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-end
-
--- Add message
-function ZygHubChatlogger:_addMessage(player, msg)
-    if not self._scrolling then return end
-
-    local text = string.format("%s %s: %s", getTimestamp(), player.Name, msg)
-
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, -10, 0, 20)
-    label.BackgroundTransparency = 1
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.TextYAlignment = Enum.TextYAlignment.Top
-    label.Text = text
-    label.Font = Enum.Font.SourceSans
-    label.TextSize = 16
-    label.TextColor3 = Color3.fromRGB(255,255,255)
-    label.TextWrapped = true
-    label.TextTruncate = Enum.TextTruncate.None
-    label.AutomaticSize = Enum.AutomaticSize.Y
-    label.Parent = self._scrolling
-
-    -- Right click to report
-    label.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton2 then
-            -- Right-click: report
-            setclipboard(player.Name) -- copy username
-            sendReport(player, msg)
-        end
-    end)
-end
-
--- Bind chat
-function ZygHubChatlogger:_bindPlayer(player)
-    local conn = player.Chatted:Connect(function(msg)
-        self:_addMessage(player, msg)
-    end)
-    table.insert(self._connections, conn)
-end
-
--- Load
-function ZygHubChatlogger:Load()
-    if self._running then return end
-    self._running = true
-
-    self:_createGui()
-    self:SetVisible(false)
-
-    for _, player in pairs(Players:GetPlayers()) do
-        self:_bindPlayer(player)
-    end
-
-    local conn = Players.PlayerAdded:Connect(function(p)
-        self:_bindPlayer(p)
-    end)
-    table.insert(self._connections, conn)
-end
-
--- Visibility toggle
-function ZygHubChatlogger:SetVisible(state)
-    self._visible = state
-    if self._frame then
-        self._frame.Visible = state
-    end
-end
-
--- Unload
-function ZygHubChatlogger:Unload()
-    self._running = false
-    for _, c in ipairs(self._connections) do
-        c:Disconnect()
-    end
-    self._connections = {}
-    if self._gui then
-        self._gui:Destroy()
-        self._gui = nil
-    end
-end
-
-return ZygHubChatlogger
