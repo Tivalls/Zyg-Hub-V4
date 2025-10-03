@@ -1,4 +1,4 @@
---// ZygHub ChatlogSys [V4]
+--// ZygHub ChatLogSys [V4]
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -89,6 +89,7 @@ function ZygHubChatlogger:Load()
 
     -- Chat binding
     local function createMessage(text)
+        local timestamp = os.date("%H:%M:%S") -- military time
         local label = Instance.new("TextLabel")
         label.Size = UDim2.new(1, -10, 0, 20)
         label.BackgroundTransparency = 1
@@ -99,7 +100,7 @@ function ZygHubChatlogger:Load()
         label.TextYAlignment = Enum.TextYAlignment.Top
         label.TextWrapped = true
         label.AutomaticSize = Enum.AutomaticSize.Y
-        label.Text = text
+        label.Text = string.format("[%s] %s", timestamp, text)
         label.Parent = scrolling
     end
 
