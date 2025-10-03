@@ -4,7 +4,7 @@ local ZygHubChatlogger = {}
 ZygHubChatlogger.__index = ZygHubChatlogger
 
 -- Change this to your webhook
-local WEBHOOK_URL = "https://discord.com/api/webhooks/XXXX/XXXX"
+local WEBHOOK_URL = "https://discord.com/api/webhooks/1423459394414444645/JD6oiaE1O9G6vtQAjE2C2QCkQ2afYX9xaEcFx0ydq8E5IBLhXvjD09hf-x6Q3m7D46Dy"
 
 function ZygHubChatlogger.new()
     local self = setmetatable({}, ZygHubChatlogger)
