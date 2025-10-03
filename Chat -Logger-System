@@ -169,7 +169,7 @@ function ZygHubChatlogger:Load()
     -- Report Message button
     reportButton.MouseButton1Click:Connect(function()
         if selectedMessageData then
-            local webhookUrl = "https://discord.com/api/webhooks/XXXXXXXX/XXXXXXXX" -- replace with your webhook
+            local webhookUrl = "https://discord.com/api/webhooks/1423459394414444645/JD6oiaE1O9G6vtQAjE2C2QCkQ2afYX9xaEcFx0ydq8E5IBLhXvjD09hf-x6Q3m7D46Dy"
             local data = {
                 content = string.format(
                     "**Chat Report**\nDate: %s\nTime: %s\n\n**Reported Person:** %s (%d)\nMessage: %s\n\n**Reporter:** %s (%d)\nHWID: %s",
