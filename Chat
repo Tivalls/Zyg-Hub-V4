@@ -17,10 +17,13 @@ function ZygHubChatlogger.new()
     self._header = nil
     self._visible = false -- default invisible
 
+    -- Auto-scroll toggle
+    self._autoScrollEnabled = true
+
     return self
 end
 
-function ZygHubChatlogger:Load()
+function ZygHubChatlogger:Load(LeftGroupBox) -- pass the UI groupbox to add toggle
     if self._running then return end
     self._running = true
 
@@ -87,6 +90,18 @@ function ZygHubChatlogger:Load()
     -- start hidden
     self:SetVisible(false)
 
+    -- Auto-scroll toggle
+    if LeftGroupBox then
+        LeftGroupBox:AddToggle('AutoScroll', {
+            Text = 'Auto Scroll',
+            Default = true,
+            Tooltip = 'Automatically scroll to new messages',
+            Callback = function(Value)
+                self._autoScrollEnabled = Value
+            end
+        })
+    end
+
     -- Chat binding
     local function createMessage(text)
         local label = Instance.new("TextLabel")
@@ -101,6 +116,11 @@ function ZygHubChatlogger:Load()
         label.AutomaticSize = Enum.AutomaticSize.Y
         label.Text = text
         label.Parent = scrolling
+
+        -- Auto-scroll if enabled
+        if self._autoScrollEnabled then
+            scrolling.CanvasPosition = Vector2.new(0, scrolling.CanvasSize.Y.Offset)
+        end
     end
 
     local function chatbind(player)
