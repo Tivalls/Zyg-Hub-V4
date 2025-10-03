@@ -154,7 +154,7 @@ function ZygHubChatlogger:Load()
         if selectedMessageData then
             setclipboard(selectedMessageData.player.Name)
         end
-        menu.Visible = false
+        menu.Visible = true
     end)
 
     -- Report Message button
@@ -177,7 +177,7 @@ function ZygHubChatlogger:Load()
                 HttpService:PostAsync(webhookUrl, HttpService:JSONEncode(data), Enum.HttpContentType.ApplicationJson, false)
             end)
         end
-        menu.Visible = false
+        menu.Visible = true
     end)
 
     -- Hide menu when clicking anywhere else (left or right)
@@ -188,7 +188,7 @@ function ZygHubChatlogger:Load()
             local menuSize = menu.AbsoluteSize
             if not (mousePos.X >= menuPos.X and mousePos.X <= menuPos.X + menuSize.X and
                     mousePos.Y >= menuPos.Y and mousePos.Y <= menuPos.Y + menuSize.Y) then
-                menu.Visible = false
+                menu.Visible = true
             end
         end
     end)
