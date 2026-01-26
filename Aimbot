@@ -1,0 +1,283 @@
+if getgenv().ZygHubV4Aimbot and getgenv().ZygHubV4Aimbot.Exit then
+    pcall(function()
+        getgenv().ZygHubV4Aimbot:Exit()
+    end)
+end
+
+--// Locals
+local game, workspace = game, workspace
+local getrawmetatable, getmetatable, setmetatable, pcall, getgenv, next, tick =
+      getrawmetatable, getmetatable, setmetatable, pcall, getgenv, next, tick
+
+local Vector2new, Vector3zero, CFramenew =
+      Vector2.new, Vector3.zero, CFrame.new
+
+local Color3fromRGB, Color3fromHSV =
+      Color3.fromRGB, Color3.fromHSV
+
+local Drawingnew, TweenInfonew =
+      Drawing.new, TweenInfo.new
+
+local mousemoverel = mousemoverel or (Input and Input.MouseMove)
+local tablefind, tableremove = table.find, table.remove
+local stringlower, stringsub = string.lower, string.sub
+local mathclamp = math.clamp
+
+--// Metatable fallback
+local GameMetatable = getrawmetatable and getrawmetatable(game) or {
+    __index = function(self, k) return self[k] end,
+    __newindex = function(self, k, v) self[k] = v end
+}
+
+local __index = GameMetatable.__index
+local __newindex = GameMetatable.__newindex
+
+local getrenderproperty = getrenderproperty or __index
+local setrenderproperty = setrenderproperty or __newindex
+
+local GetService = __index(game, "GetService")
+
+--// Services
+local RunService = GetService(game, "RunService")
+local UserInputService = GetService(game, "UserInputService")
+local TweenService = GetService(game, "TweenService")
+local Players = GetService(game, "Players")
+
+--// Objects
+local LocalPlayer = __index(Players, "LocalPlayer")
+local Camera = __index(workspace, "CurrentCamera")
+
+--// Methods
+local FindFirstChild = __index(game, "FindFirstChild")
+local FindFirstChildOfClass = __index(game, "FindFirstChildOfClass")
+local GetDescendants = __index(game, "GetDescendants")
+local WorldToViewportPoint = __index(Camera, "WorldToViewportPoint")
+local GetPartsObscuringTarget = __index(Camera, "GetPartsObscuringTarget")
+local GetMouseLocation = __index(UserInputService, "GetMouseLocation")
+local GetPlayers = __index(Players, "GetPlayers")
+
+--// State
+local RequiredDistance = 2000
+local Typing = false
+local Running = false
+local ServiceConnections = {}
+local Animation
+local OriginalSensitivity = 1
+
+local Connect = __index(game, "DescendantAdded").Connect
+local Disconnect
+
+do
+    local temp = Connect(__index(game, "DescendantAdded"), function() end)
+    Disconnect = temp.Disconnect
+    Disconnect(temp)
+end
+
+local ZygHubV4Aimbot = {
+    DeveloperSettings = {
+        UpdateMode = "RenderStepped",
+        TeamCheckOption = "TeamColor",
+        RainbowSpeed = 1
+    },
+
+    Settings = {
+        Enabled = true,
+
+        TeamCheck = false,
+        AliveCheck = true,
+        WallCheck = false,
+
+        OffsetToMoveDirection = false,
+        OffsetIncrement = 15,
+
+        Sensitivity = 0,
+        Sensitivity2 = 3.5,
+
+        LockMode = 1,
+        LockPart = "Head",
+
+        TriggerKey = Enum.UserInputType.MouseButton2,
+        Toggle = false
+    },
+
+    FOVSettings = {
+        Enabled = true,
+        Visible = true,
+
+        Radius = 90,
+        NumSides = 60,
+
+        Thickness = 1,
+        Transparency = 1,
+        Filled = false,
+
+        RainbowColor = false,
+        RainbowOutlineColor = false,
+        Color = Color3fromRGB(255,255,255),
+        OutlineColor = Color3fromRGB(0,0,0),
+        LockedColor = Color3fromRGB(255,150,150)
+    },
+
+    Blacklisted = {},
+    FOVCircle = Drawingnew("Circle"),
+    FOVCircleOutline = Drawingnew("Circle")
+}
+
+local Environment = ZygHubV4Aimbot
+getgenv().ZygHubV4Aimbot = ZygHubV4Aimbot
+
+setrenderproperty(Environment.FOVCircle, "Visible", false)
+setrenderproperty(Environment.FOVCircleOutline, "Visible", false)
+
+local function FixUsername(str)
+    for _, plr in next, GetPlayers(Players) do
+        local name = __index(plr, "Name")
+        if stringsub(stringlower(name), 1, #str) == stringlower(str) then
+            return name
+        end
+    end
+end
+
+local function GetRainbowColor()
+    local spd = Environment.DeveloperSettings.RainbowSpeed
+    return Color3fromHSV(tick() % spd / spd, 1, 1)
+end
+
+local function ConvertVector(v)
+    return Vector2new(v.X, v.Y)
+end
+
+local function CancelLock()
+    Environment.Locked = nil
+    setrenderproperty(Environment.FOVCircle, "Color", Environment.FOVSettings.Color)
+    __newindex(UserInputService, "MouseDeltaSensitivity", OriginalSensitivity)
+    if Animation then Animation:Cancel() end
+end
+
+local function GetClosestPlayer()
+    local Settings = Environment.Settings
+    local LockPart = Settings.LockPart
+
+    if not Environment.Locked then
+        RequiredDistance = Environment.FOVSettings.Enabled and Environment.FOVSettings.Radius or 2000
+
+        for _, plr in next, GetPlayers(Players) do
+            local char = __index(plr, "Character")
+            local hum = char and FindFirstChildOfClass(char, "Humanoid")
+
+            if plr ~= LocalPlayer
+                and not tablefind(Environment.Blacklisted, __index(plr, "Name"))
+                and char
+                and FindFirstChild(char, LockPart)
+                and hum then
+
+                if Settings.TeamCheck
+                    and __index(plr, Environment.DeveloperSettings.TeamCheckOption)
+                    == __index(LocalPlayer, Environment.DeveloperSettings.TeamCheckOption) then
+                    continue
+                end
+
+                if Settings.AliveCheck and __index(hum, "Health") <= 0 then
+                    continue
+                end
+
+                local pos = __index(char[LockPart], "Position")
+
+                if Settings.WallCheck then
+                    local blacklist = GetDescendants(__index(LocalPlayer, "Character"))
+                    for _, v in next, GetDescendants(char) do
+                        blacklist[#blacklist+1] = v
+                    end
+                    if #GetPartsObscuringTarget(Camera, {pos}, blacklist) > 0 then
+                        continue
+                    end
+                end
+
+                local vec, onscreen = WorldToViewportPoint(Camera, pos)
+                local dist = (GetMouseLocation(UserInputService) - ConvertVector(vec)).Magnitude
+
+                if onscreen and dist < RequiredDistance then
+                    RequiredDistance = dist
+                    Environment.Locked = plr
+                end
+            end
+        end
+    end
+end
+
+local function Load()
+    OriginalSensitivity = __index(UserInputService, "MouseDeltaSensitivity")
+
+    ServiceConnections.Render = Connect(__index(RunService, Environment.DeveloperSettings.UpdateMode), function()
+        if Environment.Settings.Enabled then
+            GetClosestPlayer()
+        end
+
+        if Running and Environment.Locked then
+            local char = __index(Environment.Locked, "Character")
+            if not char then return end
+
+            local part = char[Environment.Settings.LockPart]
+            if not part then return end
+
+            local pos = __index(part, "Position")
+
+            if Environment.Settings.LockMode == 2 then
+                local screen = WorldToViewportPoint(Camera, pos)
+                local delta = ConvertVector(screen) - GetMouseLocation(UserInputService)
+                mousemoverel(delta.X / Environment.Settings.Sensitivity2, delta.Y / Environment.Settings.Sensitivity2)
+            else
+                if Environment.Settings.Sensitivity > 0 then
+                    Animation = TweenService:Create(
+                        Camera,
+                        TweenInfonew(Environment.Settings.Sensitivity, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
+                        {CFrame = CFramenew(Camera.CFrame.Position, pos)}
+                    )
+                    Animation:Play()
+                else
+                    __newindex(Camera, "CFrame", CFramenew(Camera.CFrame.Position, pos))
+                end
+                __newindex(UserInputService, "MouseDeltaSensitivity", 0)
+            end
+        end
+    end)
+
+    ServiceConnections.InputBegan = Connect(__index(UserInputService, "InputBegan"), function(i)
+        if Typing then return end
+        if i.UserInputType == Environment.Settings.TriggerKey then
+            Running = true
+        end
+    end)
+
+    ServiceConnections.InputEnded = Connect(__index(UserInputService, "InputEnded"), function(i)
+        if i.UserInputType == Environment.Settings.TriggerKey then
+            Running = false
+            CancelLock()
+        end
+    end)
+
+    ServiceConnections.TypingOn = Connect(__index(UserInputService, "TextBoxFocused"), function()
+        Typing = true
+    end)
+
+    ServiceConnections.TypingOff = Connect(__index(UserInputService, "TextBoxFocusReleased"), function()
+        Typing = false
+    end)
+end
+
+function ZygHubV4Aimbot.Load()
+    Load()
+end
+
+function ZygHubV4Aimbot.Exit(self)
+    for _, c in next, ServiceConnections do
+        Disconnect(c)
+    end
+    self.FOVCircle:Remove()
+    self.FOVCircleOutline:Remove()
+    getgenv().ZygHubV4Aimbot = nil
+end
+
+setmetatable(ZygHubV4Aimbot, { __call = Load })
+
+return ZygHubV4Aimbot
